@@ -1,0 +1,12 @@
+{
+  "name": "headroom",
+  "version": "1.0.0",
+  "private": true,
+  "description": "See what fills your Mac and clean caches, simulators and old build files safely.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dry": "node server.js --dry-run"
+  },
+  "engines": { "node": ">=20" }
+}
