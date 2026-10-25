@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Headroom</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+  <script>window.HEADROOM = { token: '__TOKEN__', dryRun: __DRY__ };</script>
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <div class="dry" id="dry" hidden>Dry run. Buttons work, but nothing is deleted.</div>
+
+  <header class="top">
+    <div class="top__bar">
+      <span class="brand">Headroom</span>
+      <span class="volume" id="volume"></span>
+      <button class="btn btn--ghost" id="rescan" type="button">Scan again</button>
+    </div>
+
+    <div class="readout" aria-live="polite">
+      <div class="readout__now">
+        <div class="figure" id="free-now"><span class="figure__num">&nbsp;</span></div>
+        <div class="readout__label">free now</div>
+      </div>
+      <div class="readout__after" id="after" data-empty="true">
+        <div class="figure figure--accent" id="free-after"><span class="figure__num">&nbsp;</span></div>
+        <div class="readout__label" id="after-label">free after cleanup</div>
+      </div>
+    </div>
+
+    <div class="strip" id="strip" role="img" aria-label="Disk usage">
+      <span class="strip__seg strip__seg--files" id="seg-files"></span>
+      <span class="strip__seg strip__seg--reclaim" id="seg-reclaim"></span>
+      <span class="strip__seg strip__seg--selected" id="seg-selected"></span>
+      <span class="strip__seg strip__seg--free" id="seg-free"></span>
+    </div>
+    <ul class="legend" id="legend"></ul>
+  </header>
+
+  <main class="sheet">
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="clean" aria-selected="true" type="button">Clean up</button>
+      <button class="tab" role="tab" data-tab="explore" aria-selected="false" type="button">Explore</button>
+      <button class="tab" role="tab" data-tab="sims" aria-selected="false" type="button">Simulators</button>
+    </nav>
+
+    <section class="panel" id="panel-clean" role="tabpanel"></section>
+    <section class="panel" id="panel-explore" role="tabpanel" hidden></section>
+    <section class="panel" id="panel-sims" role="tabpanel" hidden></section>
+  </main>
+
+  <dialog class="modal" id="modal">
+    <form method="dialog" class="modal__inner">
+      <h2 class="modal__title" id="modal-title"></h2>
+      <div class="modal__body" id="modal-body"></div>
+      <div class="modal__actions">
+        <button class="btn btn--ghost" value="cancel" type="submit">Cancel</button>
+        <button class="btn btn--primary" value="ok" id="modal-ok" type="submit"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
