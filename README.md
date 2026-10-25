@@ -32,3 +32,13 @@ For the Trash and iPhone backups to be measured, give your terminal app Full Dis
   and protected places: Documents, Desktop, iCloud Drive, Mail, Messages, Photos, Keychains, `.ssh`.
 - Clean up deletes permanently, because that's what frees the space. Explore moves things to the Trash.
 - Running simulators and the runtimes they use are never touched. Docker volumes are never touched.
+
+## Tests
+
+```sh
+npm test
+```
+
+The tests build a fake home folder in a temp directory, try to get the guard to delete things it
+shouldn't, then run a quick cleanup and check that only caches and build output are gone. They refuse
+to run unless `npm test` has pointed `HOME` at that temp folder.
