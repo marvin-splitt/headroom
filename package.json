@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dry": "node server.js --dry-run"
+    "dry": "node server.js --dry-run",
+    "test": "node test/run.mjs"
   },
   "engines": { "node": ">=20" }
 }
