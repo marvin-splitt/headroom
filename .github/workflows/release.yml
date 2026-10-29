@@ -62,7 +62,12 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: npm run dist
+        # Missing secrets arrive as empty strings, and electron-builder reads an empty CSC_LINK as a path.
+        run: |
+          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            [ -n "${!v}" ] || unset "$v"
+          done
+          npm run dist
       - name: Write checksums
         working-directory: dist
         run: shasum -a 256 *.dmg *.zip | tee SHA256SUMS.txt
