@@ -5,7 +5,7 @@ import { adoptLoginShellPath } from '../lib/util.js';
 import { createCore } from '../lib/core.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const PUBLIC = path.join(ROOT, 'public');
+const RENDERER = path.join(ROOT, 'renderer');
 const DRY_RUN = process.argv.includes('--dry-run');
 const FULL_DISK_ACCESS = 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles';
 
@@ -23,8 +23,8 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: t
 function serveApp() {
   protocol.handle('app', (req) => {
     const url = new URL(req.url);
-    const file = path.normalize(path.join(PUBLIC, decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname)));
-    if (url.host !== 'headroom' || !file.startsWith(PUBLIC + path.sep)) return new Response('Not found', { status: 404 });
+    const file = path.normalize(path.join(RENDERER, decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname)));
+    if (url.host !== 'headroom' || !file.startsWith(RENDERER + path.sep)) return new Response('Not found', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
   });
 }

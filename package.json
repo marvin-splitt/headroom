@@ -22,7 +22,7 @@
     "files": [
       "electron/**",
       "lib/**",
-      "public/**",
+      "renderer/**",
       "package.json"
     ],
     "directories": {
