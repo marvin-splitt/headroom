@@ -33,7 +33,8 @@
     "icon": "electron build/render-icon.mjs",
     "build": "electron-builder --mac --dir",
     "dist": "electron-builder --mac --arm64 --x64 --publish never",
-    "install-app": "npm run build && node scripts/install-app.mjs"
+    "install-app": "npm run build && node scripts/install-app.mjs",
+    "version": "node scripts/changelog.mjs release && git add CHANGELOG.md"
   },
   "build": {
     "appId": "com.marvinsplitt.headroom",

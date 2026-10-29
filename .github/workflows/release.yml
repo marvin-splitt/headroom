@@ -1,0 +1,89 @@
+name: Release
+
+# Pushing a version tag (npm version …, then git push --follow-tags) builds Headroom for Apple silicon and
+# Intel and publishes a GitHub release. Running it by hand from the Actions tab builds without publishing.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Check the tag and the changelog
+        if: github.event_name == 'push'
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match version $version in package.json."
+            exit 1
+          fi
+          node scripts/changelog.mjs notes "$version" > "$RUNNER_TEMP/notes.md"
+
+      # electron-builder downloads Electron for each architecture itself.
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: npm test
+
+      # Optional: with a Developer ID certificate in the repository secrets, the app is signed with it and
+      # notarized. Without one it is signed ad hoc, like a local build.
+      - name: Check for a signing certificate
+        id: signing
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+        run: echo "enabled=${CSC_LINK:+true}" >> "$GITHUB_OUTPUT"
+      - name: Sign with the Developer ID certificate
+        if: steps.signing.outputs.enabled == 'true'
+        run: |
+          npm pkg delete build.mac.identity
+          npm pkg set build.mac.hardenedRuntime=true --json
+          npm pkg set build.mac.entitlements=build/entitlements.signed.plist build.mac.entitlementsInherit=build/entitlements.signed.plist
+
+      - name: Build
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run dist
+      - name: Write checksums
+        working-directory: dist
+        run: shasum -a 256 *.dmg *.zip | tee SHA256SUMS.txt
+
+      - name: Keep the build
+        if: github.event_name != 'push'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Headroom
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          retention-days: 14
+      - name: Publish the release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=()
+          case "$GITHUB_REF_NAME" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/*.dmg dist/*.zip dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --title "Headroom ${GITHUB_REF_NAME#v}" \
+            --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
