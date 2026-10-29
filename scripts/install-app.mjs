@@ -6,11 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-const dist = path.join(root, 'dist');
-const built = fs.readdirSync(dist)
-  .map((d) => path.join(dist, d, 'Headroom.app'))
-  .find((p) => fs.existsSync(p));
-if (!built) throw new Error('No Headroom.app in dist/. Run `npm run build` first.');
+// electron-builder puts x64 builds in dist/mac and the others in dist/mac-<arch>.
+const built = path.join(root, 'dist', process.arch === 'x64' ? 'mac' : `mac-${process.arch}`, 'Headroom.app');
+if (!fs.existsSync(built)) throw new Error('No Headroom.app for this Mac in dist/. Run `npm run build` first.');
 
 const target = '/Applications/Headroom.app';
 if (fs.existsSync(target)) {
