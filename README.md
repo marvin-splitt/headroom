@@ -1,43 +1,71 @@
-# Headroom
+<p align="center">
+  <img src="build/icon.png" width="128" height="128" alt="">
+</p>
 
-A small Mac app that shows what fills your disk and cleans the things that come back on their own.
+<h1 align="center">Headroom</h1>
+
+<p align="center">See what fills your Mac and clean the things that come back on their own.</p>
+
+<p align="center">
+  <a href="https://github.com/marvin-splitt/headroom/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/marvin-splitt/headroom"></a>
+  <a href="https://github.com/marvin-splitt/headroom/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/marvin-splitt/headroom/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="macOS 13 or later" src="https://img.shields.io/badge/macOS-13%2B-blue">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/marvin-splitt/headroom"></a>
+</p>
+
+![Headroom's Clean up tab](docs/screenshot.png)
+
+Headroom measures caches, simulators, old project dependencies and downloads. It selects what is safe to
+delete and cleans it with one button. It's free and open source, and it doesn't phone home.
 
 ## Install
 
+1. Download the DMG for your Mac from the [latest release](https://github.com/marvin-splitt/headroom/releases/latest):
+   `arm64` for Apple silicon (M1 and later), `x64` for Intel.
+2. Open it and drag Headroom to Applications.
+3. Headroom isn't notarized by Apple, so macOS blocks the first launch. Open Headroom once, then go to
+   System Settings → Privacy & Security and click **Open Anyway** next to the message about Headroom.
+
+   If macOS says Headroom "is damaged and can't be opened", that's the same block. Remove the download flag
+   in Terminal and open it again:
+
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/Headroom.app
+   ```
+
+Headroom needs macOS 13 Ventura or later. Each release lists the SHA-256 checksums of its files in
+`SHA256SUMS.txt`.
+
+### Full Disk Access
+
+macOS hides the Trash and iPhone backups from apps by default. To measure and clean them, give Headroom
+Full Disk Access in System Settings → Privacy & Security → Full Disk Access (Help → Open Full Disk Access
+Settings takes you there). Everything else works without it.
+
+### Build from source
+
+You need Node.js 20 or later. Every release also has the source code attached as zip and tar.gz.
+
 ```sh
+git clone https://github.com/marvin-splitt/headroom.git
+cd headroom
 npm install
-npm run install-app   # builds Headroom.app and copies it to /Applications
+npm run install-app   # builds Headroom.app for this Mac and copies it to /Applications
 ```
 
-Then open Headroom from Launchpad or Spotlight. To build without installing, run `npm run build`; the app
-lands in `dist/`.
-
-For the Trash and iPhone backups to be measured, give Headroom Full Disk Access
-(System Settings → Privacy & Security → Full Disk Access, or Help → Open Full Disk Access Settings).
-The build is signed ad hoc, so macOS asks again after each rebuild.
-
-## Develop
-
-```sh
-npm start       # run from source
-npm run dry     # everything works, nothing is deleted
-npm test
-```
-
-To try the installed app without deleting anything: `open -a Headroom --args --dry-run`.
+`npm run build` builds without installing; the app lands in `dist/`. Local builds are signed ad hoc, so
+macOS asks for Full Disk Access again after each rebuild.
 
 ## What it does
 
-- **Clean up**: measures caches, simulators, old project dependencies and downloads. Safe items are selected
-  for you; items marked *Review first* never are. One button cleans the selection.
-- **Explore**: drill into any folder by size. Show it in Finder or move it to the Trash.
-- **Simulators**: erase or delete simulators and old iOS runtimes.
+- **Clean up** measures app and package manager caches, logs, Xcode build data, simulators and their
+  runtimes, Docker leftovers, dependencies in projects you haven't touched in a while, the Trash and old
+  installers. Safe items are selected for you; items marked *Review first* never are. One button cleans the
+  selection.
+- **Explore** lists any folder by size. Show it in Finder or move it to the Trash.
+- **Simulators** erases or deletes simulators and old iOS runtimes.
 
-## How it fits together
-
-- `electron/main.js` runs the scanning and cleaning code (`lib/`) and opens the window.
-- `electron/preload.cjs` is the window's only way to reach the disk: a short list of calls, no Node access.
-- `public/` is the window itself, loaded from an `app://` scheme with a strict content security policy.
+To look around without deleting anything, start it in dry run mode: `open -a Headroom --args --dry-run`.
 
 ## Safety
 
@@ -50,13 +78,27 @@ To try the installed app without deleting anything: `open -a Headroom --args --d
 - Headroom may hold Full Disk Access, so the app binary can't be reused as a Node runtime or debugged
   through Node flags (Electron fuses), and the window runs sandboxed.
 
-## Tests
+## Development
 
 ```sh
-npm test
+npm install
+npm start       # run from source
+npm run dry     # everything works, nothing is deleted
+npm test        # safety tests against a throwaway home folder
 ```
 
-The tests build a fake home folder in a temp directory, try to get the guard to delete things it
-shouldn't, then run a quick cleanup and check that only caches and build output are gone. They also check
-that a clean only acts on ids from the last scan. They refuse to run unless `npm test` has pointed `HOME`
-at that temp folder.
+- `electron/main.js` runs the scanning and cleaning code and opens the window.
+- `electron/preload.cjs` is the window's only way to reach the disk: a short list of calls, no Node access.
+- `lib/` measures and cleans: `scan.js` knows what to look for, `actions.js` deletes behind the guard,
+  `core.js` ties them together.
+- `renderer/` is the window itself, plain HTML, CSS and JavaScript loaded from an `app://` scheme with a
+  strict content security policy. There is no build step.
+- `test/` builds a fake home folder, tries to get the guard to delete things it shouldn't, then runs a quick
+  cleanup and checks that only caches and build output are gone. The tests refuse to run unless `npm test`
+  has pointed `HOME` at a temp folder.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute and how releases are made.
+
+## License
+
+[MIT](LICENSE). The bundled Instrument Sans font is under the [SIL Open Font License](renderer/fonts/OFL.txt).

@@ -1,0 +1,17 @@
+name: Idea
+description: Something Headroom should measure or clean, or a feature you'd like.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should Headroom do?
+    validations:
+      required: true
+  - type: textarea
+    id: cleanup
+    attributes:
+      label: For something new to clean
+      description: Where it lives, which app or tool puts it there, how big it gets, and whether it comes back on its own after you delete it.
+      placeholder: |
+        ~/Library/Caches/SomeTool, written by SomeTool, grows to about 5 GB, rebuilt on the next run.
