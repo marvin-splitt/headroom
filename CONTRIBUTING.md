@@ -74,12 +74,23 @@ The DMGs are kept as a workflow artifact for 14 days.
 
 Without a certificate the app is signed ad hoc, and users have to allow it in Privacy & Security the first
 time they open it. With an Apple Developer account, add these repository secrets and the workflow signs and
-notarizes the app instead:
+notarizes the app instead. If the certificate is there but the API key isn't, the build fails rather than
+publish an app macOS would block.
 
 | Secret | Value |
 | --- | --- |
-| `CSC_LINK` | Your *Developer ID Application* certificate exported as .p12, base64 encoded |
+| `CSC_LINK` | Your *Developer ID Application* certificate and its private key, exported as .p12 and base64 encoded |
 | `CSC_KEY_PASSWORD` | The password of that .p12 file |
-| `APPLE_ID` | The Apple ID of your developer account |
-| `APPLE_APP_SPECIFIC_PASSWORD` | An [app-specific password](https://support.apple.com/102654) for that Apple ID |
-| `APPLE_TEAM_ID` | Your team ID |
+| `APPLE_API_KEY` | The contents of an App Store Connect API *team* key (`AuthKey_….p8`) |
+| `APPLE_API_KEY_ID` | That key's ID |
+| `APPLE_API_ISSUER` | The issuer ID shown above the list of team keys |
+
+Set them from the terminal so the values never pass through a browser:
+
+```sh
+base64 -i developer-id.p12 | gh secret set CSC_LINK
+gh secret set CSC_KEY_PASSWORD            # prompts for the value
+gh secret set APPLE_API_KEY < AuthKey_XXXXXXXXXX.p8
+gh secret set APPLE_API_KEY_ID --body XXXXXXXXXX
+gh secret set APPLE_API_ISSUER --body 00000000-0000-0000-0000-000000000000
+```

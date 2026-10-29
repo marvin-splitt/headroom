@@ -25,8 +25,18 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      # Optional: with a Developer ID certificate and an App Store Connect API key in the repository secrets,
+      # the app is signed and notarized. Without them it is signed ad hoc, like a local build.
+      - name: Check for a signing certificate
+        id: signing
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+        run: echo "enabled=${CSC_LINK:+true}" >> "$GITHUB_OUTPUT"
+
       - name: Check the tag and the changelog
         if: github.event_name == 'push'
+        env:
+          HEADROOM_SIGNED: ${{ steps.signing.outputs.enabled }}
         run: |
           version=$(node -p 'require("./package.json").version')
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
@@ -41,13 +51,6 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: npm test
 
-      # Optional: with a Developer ID certificate in the repository secrets, the app is signed with it and
-      # notarized. Without one it is signed ad hoc, like a local build.
-      - name: Check for a signing certificate
-        id: signing
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-        run: echo "enabled=${CSC_LINK:+true}" >> "$GITHUB_OUTPUT"
       - name: Sign with the Developer ID certificate
         if: steps.signing.outputs.enabled == 'true'
         run: |
@@ -59,15 +62,34 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          NOTARY_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         # Missing secrets arrive as empty strings, and electron-builder reads an empty CSC_LINK as a path.
         run: |
-          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY_ID APPLE_API_ISSUER; do
             [ -n "${!v}" ] || unset "$v"
           done
+          if [ -n "$CSC_LINK" ]; then
+            # A signed app that isn't notarized still gets blocked by macOS, so don't build one.
+            if [ -z "$NOTARY_KEY" ] || [ -z "$APPLE_API_KEY_ID" ] || [ -z "$APPLE_API_ISSUER" ]; then
+              echo "::error::Notarizing needs the APPLE_API_KEY, APPLE_API_KEY_ID and APPLE_API_ISSUER secrets."
+              exit 1
+            fi
+            # notarytool reads the key from a file.
+            export APPLE_API_KEY="$RUNNER_TEMP/notary-key.p8"
+            printf '%s\n' "$NOTARY_KEY" > "$APPLE_API_KEY"
+          fi
+          unset NOTARY_KEY
           npm run dist
+      - name: Check the signature and notarization
+        if: steps.signing.outputs.enabled == 'true'
+        run: |
+          for app in dist/mac/Headroom.app dist/mac-arm64/Headroom.app; do
+            codesign --verify --deep --strict "$app"
+            spctl --assess --type execute -vv "$app"
+            xcrun stapler validate "$app"
+          done
       - name: Write checksums
         working-directory: dist
         run: shasum -a 256 *.dmg *.zip | tee SHA256SUMS.txt

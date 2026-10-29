@@ -1,6 +1,7 @@
 // Keeps CHANGELOG.md in step with releases.
 //   node scripts/changelog.mjs release          files "Unreleased" under the version in package.json (`npm version` runs this)
-//   node scripts/changelog.mjs notes <version>  prints the release notes for a version (the release workflow uses this)
+//   node scripts/changelog.mjs notes <version>  prints the release notes for a version (the release workflow uses this;
+//                                               HEADROOM_SIGNED=true drops the first-launch step for notarized builds)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,12 +44,15 @@ if (cmd === 'release') {
 } else if (cmd === 'notes' && arg) {
   const notes = section(arg);
   if (!notes?.body) fail(`CHANGELOG.md has no notes for ${arg}.`);
+  const firstLaunch = process.env.HEADROOM_SIGNED === 'true'
+    ? ''
+    : ` The first launch needs one extra step, see [Install](${repo}#install).`;
   console.log(`${notes.body}
 
 ---
 
 **Which file?** \`${pkg.productName}-${arg}-arm64.dmg\` for Apple silicon Macs (M1 and later), \`${pkg.productName}-${arg}-x64.dmg\` for Intel Macs.
-Open it and drag ${pkg.productName} to Applications. The first launch needs one extra step, see [Install](${repo}#install).`);
+Open it and drag ${pkg.productName} to Applications.${firstLaunch}`);
 } else {
   fail('Usage: node scripts/changelog.mjs release | notes <version>');
 }
