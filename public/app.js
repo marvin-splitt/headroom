@@ -1,17 +1,7 @@
-const { token, dryRun } = window.HEADROOM;
+// The preload script's bridge to the main process (electron/preload.cjs).
+const hr = window.headroom;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
-
-// ---------- API ----------
-
-async function api(url, opts = {}) {
-  const res = await fetch(url, { ...opts, headers: { 'content-type': 'application/json', 'x-headroom-token': token } });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
-  return data;
-}
-const post = (url, body) => api(url, { method: 'POST', body: JSON.stringify(body) });
-const stream = (url, params = {}) => new EventSource(`${url}?${new URLSearchParams({ ...params, t: token })}`);
 
 // ---------- Formatting ----------
 
@@ -266,7 +256,7 @@ function onCleanClick(e) {
     S.showAll.add(t.dataset.more);
     renderAll();
   } else if (t.dataset.reveal) {
-    post('/api/reveal', { path: t.dataset.reveal }).catch((err) => toast(err.message));
+    hr.reveal(t.dataset.reveal).catch((err) => toast(err.message));
   } else if (t.dataset.act === 'suggested') {
     for (const it of S.items.values()) if (ready(it)) S.sel.set(it.id, defaults(it));
     renderAll();
@@ -298,35 +288,17 @@ async function runClean(chosen) {
   S.cleaning = new Map(chosen.map((it) => [it.id, { state: 'queued', done: 0, total: S.sel.get(it.id).size }]));
   renderAll();
   let summary = null;
-  try {
-    const res = await fetch('/api/clean', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-headroom-token': token },
-      body: JSON.stringify({ selections: chosen.map((it) => ({ id: it.id, entries: [...S.sel.get(it.id)] })) }),
-    });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Cleaning failed to start.');
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '';
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      let nl;
-      while ((nl = buf.indexOf('\n')) >= 0) {
-        const msg = JSON.parse(buf.slice(0, nl));
-        buf = buf.slice(nl + 1);
-        const st = S.cleaning.get(msg.id);
-        if (msg.type === 'start') Object.assign(st, { state: 'running' });
-        if (msg.type === 'entry') st.done++;
-        if (msg.type === 'item') Object.assign(st || {}, { state: msg.ok ? (msg.skipped ? 'partial' : 'done') : 'error', skipped: msg.skipped, error: msg.error });
-        if (msg.type === 'done') { summary = msg; S.disk = { ...S.disk, ...msg.disk }; }
-        renderAll();
-      }
-    }
-  } catch (err) {
-    toast(err.message);
-  }
+  const selections = chosen.map((it) => ({ id: it.id, entries: [...S.sel.get(it.id)] }));
+  await new Promise((resolve) => hr.clean(selections, (event, msg) => {
+    const st = S.cleaning.get(msg.id);
+    if (event === 'start') Object.assign(st, { state: 'running' });
+    else if (event === 'entry') st.done++;
+    else if (event === 'item') Object.assign(st || {}, { state: msg.ok ? (msg.skipped ? 'partial' : 'done') : 'error', skipped: msg.skipped, error: msg.error });
+    else if (event === 'done') { summary = msg; S.disk = { ...S.disk, ...msg.disk }; }
+    else if (event === 'error') toast(msg.error);
+    else if (event === 'end') resolve();
+    renderAll();
+  }));
   if (summary) {
     if (summary.dryRun) toast('Dry run finished. Nothing was deleted.');
     else if (summary.freed > 50e6) toast(`Freed ${fmt(summary.freed)}. You now have ${fmt(summary.disk.free)} free.`);
@@ -337,10 +309,10 @@ async function runClean(chosen) {
 
 // ---------- Scanning ----------
 
-let scanES = null;
+let stopScan = null;
 
 function startScan() {
-  scanES?.close();
+  stopScan?.();
   S.scanning = true;
   S.measured = 0;
   S.groups = [];
@@ -349,45 +321,40 @@ function startScan() {
   S.sel.clear();
   loadDisk();
   renderAll();
-  const es = scanES = stream('/api/scan');
-  es.addEventListener('start', (e) => {
-    const d = JSON.parse(e.data);
-    S.groups = d.groups;
-    S.order = d.items.map((it) => it.id);
-    d.items.forEach((it) => S.items.set(it.id, { ...it, pending: true, entries: [] }));
-    renderAll();
+  stopScan = hr.scan(null, (event, d) => {
+    if (event === 'start') {
+      S.groups = d.groups;
+      S.order = d.items.map((it) => it.id);
+      d.items.forEach((it) => S.items.set(it.id, { ...it, pending: true, entries: [] }));
+      renderAll();
+    } else if (event === 'item') {
+      S.items.set(d.id, d);
+      S.sel.set(d.id, defaults(d));
+      S.measured++;
+      scheduleRender();
+    } else if (event === 'error') {
+      toast(`The scan stopped: ${d.error}`);
+    } else if (event === 'end') {
+      S.scanning = false;
+      scheduleRender();
+    }
   });
-  es.addEventListener('item', (e) => {
-    const it = JSON.parse(e.data);
-    S.items.set(it.id, it);
-    S.sel.set(it.id, defaults(it));
-    S.measured++;
-    scheduleRender();
-  });
-  es.addEventListener('done', () => { es.close(); S.scanning = false; scheduleRender(); });
-  es.onerror = () => {
-    es.close();
-    if (S.scanning) { S.scanning = false; toast('The scan stopped. Check that Headroom is still running in Terminal.'); scheduleRender(); }
-  };
 }
 
 /** Re-measures a few items in place, e.g. the Trash after moving something into it. */
 function rescanItems(ids) {
-  const es = stream('/api/scan', { only: ids.join(',') });
-  es.addEventListener('item', (e) => {
-    const it = JSON.parse(e.data);
-    if (!S.items.has(it.id)) return;
+  hr.scan(ids, (event, it) => {
+    if (event !== 'item' || !S.items.has(it.id)) return;
     S.items.set(it.id, it);
     S.sel.set(it.id, defaults(it));
     scheduleRender();
   });
-  es.addEventListener('done', () => es.close());
-  es.onerror = () => es.close();
 }
 
 async function loadDisk() {
   try {
-    S.disk = await api('/api/disk');
+    S.disk = await hr.disk();
+    $('#dry').hidden = !S.disk.dryRun;
     if (!S.ex.path) S.ex.path = S.disk.home;
     scheduleRender();
   } catch (err) {
@@ -397,39 +364,28 @@ async function loadDisk() {
 
 // ---------- Explore ----------
 
-let exES = null;
+let stopExplore = null;
 
 function openFolder(p) {
-  exES?.close();
+  stopExplore?.();
   S.ex = { path: p, items: [], loading: true, error: null, showSmall: false };
   renderAll();
-  const es = exES = stream('/api/explore', { path: p || '' });
-  es.addEventListener('list', (e) => {
-    const d = JSON.parse(e.data);
-    S.ex.path = d.path;
-    S.ex.items = d.items;
-    S.ex.byPath = new Map(d.items.map((x) => [x.path, x]));
+  stopExplore = hr.explore(p || '', (event, d) => {
+    if (event === 'list') {
+      S.ex.path = d.path;
+      S.ex.items = d.items;
+      S.ex.byPath = new Map(d.items.map((x) => [x.path, x]));
+    } else if (event === 'size') {
+      const x = S.ex.byPath?.get(d.path);
+      if (x) x.bytes = d.bytes;
+    } else if (event === 'failed' || event === 'error') {
+      S.ex.error = d.error;
+      S.ex.needsFullDiskAccess = !!d.needsFullDiskAccess;
+    } else if (event === 'end') {
+      S.ex.loading = false;
+    }
     scheduleRender();
   });
-  es.addEventListener('size', (e) => {
-    const d = JSON.parse(e.data);
-    const x = S.ex.byPath?.get(d.path);
-    if (x) x.bytes = d.bytes;
-    scheduleRender();
-  });
-  es.addEventListener('failed', (e) => {
-    es.close();
-    S.ex.error = JSON.parse(e.data).error;
-    S.ex.loading = false;
-    scheduleRender();
-  });
-  es.addEventListener('done', () => { es.close(); S.ex.loading = false; scheduleRender(); });
-  es.onerror = () => {
-    es.close();
-    if (S.ex.loading && !S.ex.items.length) S.ex.error = 'Couldn’t open that folder. It may have been moved or deleted.';
-    S.ex.loading = false;
-    scheduleRender();
-  };
 }
 
 function crumbsFor(p) {
@@ -497,7 +453,7 @@ function renderExplore() {
       </nav>
       <span class="explore__summary">${summary}</span>
     </div>
-    ${ex.error ? `<p class="notice">${esc(ex.error)}</p>` : ''}
+    ${ex.error ? `<p class="notice">${esc(ex.error)}${ex.needsFullDiskAccess ? ` Give Headroom Full Disk Access to look inside. <button class="link" type="button" data-fda>Open Settings</button>` : ''}</p>` : ''}
     ${!ex.error && !ex.loading && !ex.items.length ? '<p class="notice">This folder is empty.</p>' : ''}
     <ul class="files">${rows}</ul>
     ${small > 0 ? `<div class="files__more"><button class="link" type="button" data-small>Show ${plural(small, 'smaller item')} (${fmt(smallBytes)})</button></div>` : ''}
@@ -509,7 +465,7 @@ async function onExploreClick(e) {
   if (!t) return;
   if (t.dataset.open) openFolder(t.dataset.open);
   else if (t.hasAttribute('data-small')) { S.ex.showSmall = true; renderAll(); }
-  else if (t.dataset.reveal) post('/api/reveal', { path: t.dataset.reveal }).catch((err) => toast(err.message));
+  else if (t.dataset.reveal) hr.reveal(t.dataset.reveal).catch((err) => toast(err.message));
   else if (t.dataset.trash) trashItem(t.dataset.trash);
 }
 
@@ -517,7 +473,7 @@ async function trashItem(p) {
   const x = S.ex.byPath?.get(p);
   const name = x?.name || p.split('/').pop();
   try {
-    const check = await post('/api/check-trash', { path: p });
+    const check = await hr.checkTrash(p);
     if (!check.ok) return toast(`Headroom leaves “${name}” alone. It’s a system or protected folder.`);
     const ok = await confirmModal({
       title: `Move “${name}” to the Trash?`,
@@ -526,7 +482,7 @@ async function trashItem(p) {
       danger: true,
     });
     if (!ok) return;
-    const r = await post('/api/trash', { path: p });
+    const r = await hr.trash(p);
     if (!r.dryRun) {
       S.ex.items = S.ex.items.filter((i) => i.path !== p);
       S.ex.byPath.delete(p);
@@ -543,7 +499,7 @@ async function trashItem(p) {
 
 async function loadSims() {
   try {
-    S.sims = await api('/api/sims');
+    S.sims = await hr.sims();
   } catch (err) {
     S.sims = { error: err.message };
   }
@@ -623,7 +579,7 @@ async function onSimsClick(e) {
   S.simBusy = `${op}:${id}`;
   renderAll();
   try {
-    const r = await post('/api/sim', { op, id });
+    const r = await hr.sim(op, id);
     toast(r.dryRun ? `Dry run: ${label} is unchanged.` : `${done} ${label}.`);
   } catch (err) {
     toast(err.message);
@@ -676,11 +632,21 @@ $('#panel-clean').addEventListener('change', onCleanChange);
 $('#panel-clean').addEventListener('click', onCleanClick);
 $('#panel-explore').addEventListener('click', onExploreClick);
 $('#panel-sims').addEventListener('click', onSimsClick);
-$('#rescan').addEventListener('click', () => {
+document.addEventListener('click', (e) => {
+  if (e.target.closest('button[data-fda]')) hr.openFullDiskAccess().catch((err) => toast(err.message));
+});
+
+function rescan() {
+  if (S.cleaning) return;
   startScan();
   if (S.tab === 'explore') openFolder(S.ex.path);
   if (S.tab === 'sims') { S.sims = null; loadSims(); }
+}
+$('#rescan').addEventListener('click', rescan);
+
+hr.onMenu((cmd) => {
+  if (cmd === 'rescan') rescan();
+  else if (cmd.startsWith('tab:')) setTab(cmd.slice(4));
 });
 
-$('#dry').hidden = !dryRun;
 startScan();

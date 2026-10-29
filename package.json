@@ -1,13 +1,22 @@
 {
   "name": "headroom",
+  "productName": "Headroom",
   "version": "1.0.0",
   "private": true,
   "description": "See what fills your Mac and clean caches, simulators and old build files safely.",
+  "author": "Marvin Splitt",
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
-    "start": "node server.js",
-    "dry": "node server.js --dry-run",
+    "start": "electron .",
+    "dry": "electron . --dry-run",
     "test": "node test/run.mjs"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0"
+  }
 }
