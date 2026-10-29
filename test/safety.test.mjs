@@ -19,6 +19,7 @@ const OUTSIDE = path.join(ROOT, 'outside');
 // Imported only after the check above, because lib/util.js reads HOME when it loads.
 const { guard, guardTrash, runAction, GuardError } = await import('../lib/actions.js');
 const { ITEMS, measureItem } = await import('../lib/scan.js');
+const { createCore } = await import('../lib/core.js');
 
 const mk = (p, data = 'x'.repeat(1_200_000)) => {
   fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -119,4 +120,28 @@ test('quick cleanup removes caches and keeps everything else', async () => {
   assert.ok(gone(`${HOME}/Downloads/Thing.dmg`), 'old installer removed');
   assert.ok(kept(`${HOME}/Documents/important.txt`), 'Documents kept');
   assert.ok(kept(`${OUTSIDE}/victim.txt`), 'files outside home kept');
+});
+
+test('clean only acts on ids from the last scan', async () => {
+  const core = createCore();
+  const blob = `${HOME}/Library/Caches/com.example.app/blob`;
+  mk(blob);
+  const events = [];
+  const record = (event, data) => events.push([event, data]);
+
+  await core.clean({ selections: [{ id: 'app-caches', entries: ['made-up'] }] }, record);
+  assert.deepEqual(events[0], ['item', { id: 'app-caches', ok: false, error: 'Scan again before cleaning this.' }]);
+  assert.ok(fs.existsSync(blob), 'nothing removed before a scan');
+
+  let view;
+  await core.scan({ only: ['app-caches'] }, (event, data) => { if (event === 'item') view = data; });
+  const entry = view.entries.find((e) => e.path === `${HOME}/Library/Caches/com.example.app`);
+  assert.ok(entry, 'scan lists the new cache');
+
+  events.length = 0;
+  await core.clean({ selections: [{ id: 'app-caches', entries: ['made-up', entry.id] }] }, record);
+  const item = events.find(([event]) => event === 'item')[1];
+  assert.equal(item.ok, false);
+  assert.equal(item.error, 'Out of date, scan again.', 'unknown ids are refused');
+  assert.ok(!fs.existsSync(blob), 'the scanned entry was cleaned');
 });
