@@ -10,7 +10,49 @@
   "scripts": {
     "start": "electron .",
     "dry": "electron . --dry-run",
-    "test": "node test/run.mjs"
+    "test": "node test/run.mjs",
+    "icon": "electron build/render-icon.mjs",
+    "build": "electron-builder --mac --dir",
+    "install-app": "npm run build && node scripts/install-app.mjs"
+  },
+  "build": {
+    "appId": "com.marvinsplitt.headroom",
+    "productName": "Headroom",
+    "copyright": "Copyright © 2026 Marvin Splitt",
+    "files": [
+      "electron/**",
+      "lib/**",
+      "public/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "enableCookieEncryption": true,
+      "grantFileProtocolExtraPrivileges": false
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dir"
+      ],
+      "identity": "-",
+      "hardenedRuntime": false,
+      "darkModeSupport": true,
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Headroom asks Finder to empty the Trash when you clean it.",
+        "NSDesktopFolderUsageDescription": "Headroom measures the folders you open in Explore.",
+        "NSDocumentsFolderUsageDescription": "Headroom measures the folders you open in Explore.",
+        "NSDownloadsFolderUsageDescription": "Headroom looks for old installers in your Downloads folder."
+      }
+    }
   },
   "engines": {
     "node": ">=20"

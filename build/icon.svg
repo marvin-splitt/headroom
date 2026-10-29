@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a60f2"/>
+      <stop offset="1" stop-color="#2f34bf"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".18"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="hatch" width="34" height="34" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="15" height="34" fill="#fff" fill-opacity=".62"/>
+    </pattern>
+    <clipPath id="strip"><rect x="212" y="432" width="600" height="160" rx="44"/></clipPath>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#0b0d3a" flood-opacity=".32"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#body)"/>
+  </g>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#sheen)"/>
+  <g clip-path="url(#strip)">
+    <rect x="212" y="432" width="600" height="160" fill="#fff" fill-opacity=".2"/>
+    <rect x="212" y="432" width="300" height="160" fill="#fff"/>
+    <rect x="512" y="432" width="150" height="160" fill="url(#hatch)"/>
+  </g>
+</svg>
