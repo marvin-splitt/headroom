@@ -4,7 +4,26 @@
   "version": "1.0.0",
   "private": true,
   "description": "See what fills your Mac and clean caches, simulators and old build files safely.",
-  "author": "Marvin Splitt",
+  "license": "MIT",
+  "author": "Marvin Splitt (https://github.com/marvin-splitt)",
+  "homepage": "https://github.com/marvin-splitt/headroom",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marvin-splitt/headroom.git"
+  },
+  "bugs": {
+    "url": "https://github.com/marvin-splitt/headroom/issues"
+  },
+  "keywords": [
+    "macos",
+    "electron",
+    "disk-space",
+    "storage",
+    "cleaner",
+    "cache",
+    "xcode",
+    "simulator"
+  ],
   "type": "module",
   "main": "electron/main.js",
   "scripts": {

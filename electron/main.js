@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, net, protocol, shell } from 'electron';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { adoptLoginShellPath } from '../lib/util.js';
@@ -8,6 +9,7 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const RENDERER = path.join(ROOT, 'renderer');
 const DRY_RUN = process.argv.includes('--dry-run');
 const FULL_DISK_ACCESS = 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles';
+const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
 const core = createCore({ dryRun: DRY_RUN });
 let win = null;
@@ -151,7 +153,12 @@ function buildMenu() {
     { role: 'windowMenu' },
     {
       role: 'help',
-      submenu: [{ label: 'Open Full Disk Access Settings', click: () => shell.openExternal(FULL_DISK_ACCESS) }],
+      submenu: [
+        { label: 'Open Full Disk Access Settings', click: () => shell.openExternal(FULL_DISK_ACCESS) },
+        { type: 'separator' },
+        { label: 'Headroom on GitHub', click: () => shell.openExternal(PKG.homepage) },
+        { label: 'Report a Problem', click: () => shell.openExternal(PKG.bugs.url) },
+      ],
     },
   ]));
 }
