@@ -23,18 +23,9 @@ delete and cleans it with one button. It's free and open source, and it doesn't 
 1. Download the DMG for your Mac from the [latest release](https://github.com/marvin-splitt/headroom/releases/latest):
    `arm64` for Apple silicon (M1 and later), `x64` for Intel.
 2. Open it and drag Headroom to Applications.
-3. Headroom isn't notarized by Apple, so macOS blocks the first launch. Open Headroom once, then go to
-   System Settings → Privacy & Security and click **Open Anyway** next to the message about Headroom.
 
-   If macOS says Headroom "is damaged and can't be opened", that's the same block. Remove the download flag
-   in Terminal and open it again:
-
-   ```sh
-   xattr -dr com.apple.quarantine /Applications/Headroom.app
-   ```
-
-Headroom needs macOS 13 Ventura or later. Each release lists the SHA-256 checksums of its files in
-`SHA256SUMS.txt`.
+Headroom is signed with a Developer ID and notarized by Apple, so it opens like any other app. It needs
+macOS 13 Ventura or later. Each release lists the SHA-256 checksums of its files in `SHA256SUMS.txt`.
 
 ### Full Disk Access
 

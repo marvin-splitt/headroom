@@ -12,6 +12,8 @@ First public release.
 
 ### Added
 
+- Signed with a Developer ID and notarized by Apple, so macOS opens it without a warning.
+
 - **Clean up** measures app and web caches, package manager caches (Yarn, npm, pnpm, Bun, CocoaPods,
   Homebrew, Gradle), logs, Xcode build data and debug symbols, simulators and their runtimes, Docker
   leftovers, dependencies in inactive projects, the Trash, old installers in Downloads and iPhone backups.
